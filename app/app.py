@@ -12,13 +12,15 @@ import zipfile
 from pathlib import Path
 import os
 
+from new_seal import init_new_seal_state, render_new_seal_button
+
 os.environ["STREAMLIT_WATCHER_TYPE"] = "none"
 
 
 # Setup constants
 if not os.path.exists("VIT"):
     gdown.download_folder("https://drive.google.com/drive/folders/1rPSmx28DGFKN-lAN2gTosglsZigJoSzZ?usp=drive_link", output="VIT", quiet=False, use_cookies=False)
-    
+
 MODEL_DIR = "VIT"
 PROCESSOR_DIR = "VIT/saved_processor"
 
@@ -72,7 +74,7 @@ def load_model_and_processor():
     """
     model = ViTForImageClassification.from_pretrained(MODEL_DIR)
     processor = ViTImageProcessor.from_pretrained(PROCESSOR_DIR)
-    
+
     id2label = model.config.id2label
 
     return model, processor, id2label
@@ -106,6 +108,8 @@ if 'compare' not in st.session_state:
     st.session_state.compare = 0
 if 'selected_img' not in st.session_state:
     st.session_state.selected_img = 0
+
+init_new_seal_state()
 
 def reset_selected_img():
     st.session_state.selected_img = 0
@@ -171,7 +175,7 @@ if uploaded_files:
     )
 
     #Preview of cropped image
-    st.image(cropped_image, caption="Cropped Preview", use_container_width=True) 
+    st.image(cropped_image, caption="Cropped Preview", use_container_width=True)
 
     #Button to confirm img crop
     if st.button("✅ Confirm Crop"):
@@ -194,8 +198,11 @@ if uploaded_files:
         conf_score = predictions[2]['score'] * 100
         st.button(f"- **{predictions[2]['label']}** with confidence **{conf_score:.0f}**%", on_click=compare3)
 
+        render_new_seal_button(predictions)
+
         if st.session_state.compare > 0:
 
+            #TODO (Erik) - labels should be strings so seals can have names (look up exact folder first, then without leading zeros)
             selected_label = str(int(predictions[st.session_state.compare-1]['label']))
             train_folder = Path(f"app/seal_imgs/{selected_label}/train")
             dev_folder = Path(f"app/seal_imgs/{selected_label}/dev")
@@ -254,9 +261,10 @@ if uploaded_files:
         with col2:
             st.button("Next ➡️", on_click=go_next, disabled=current_index == total_images - 1)
 
-                
+
         filename = st.text_input("Enter filename to save this image:", default_filename)
         st.markdown("### 💾 Save Cropped Image")
+        #TODO - Change this to "Add to Queue" button
         if st.button("💾 Save Image"):
             save_path = os.path.join(st.session_state.saved_crops_dir, filename)
             cropped_image.save(save_path)
@@ -282,6 +290,3 @@ if st.session_state.saved_files:
             file_name="cropped_images.zip",
             mime="application/zip"
         )
-
-
-

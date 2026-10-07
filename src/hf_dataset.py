@@ -8,6 +8,7 @@ import pandas as pd
 
 DATA_FOLDER = "../storage/date_split"
 
+#TODO (Erik) - labels should be strings so seals can have names
 classes = []
 for seal_folder in os.listdir(DATA_FOLDER):
     classes.append(int(seal_folder))
@@ -33,6 +34,7 @@ class HFDataset(Dataset):
                 self.image_paths.append(os.path.join(self.img_dir, seal, phase, img_path))
                 if mask_dir is not None:
                     self.mask_paths.append(os.path.join(self.mask_dir, seal, phase, img_path))
+                #TODO (Erik) - labels should be strings so seals can have names
                 self.labels.append(classes.index(int(seal)))
 
     # Function that returns the number of datapoints in the dataset
@@ -98,6 +100,7 @@ class HFMinMaxDataset(Dataset):
                 self.image_paths.append(img_path)
                 if mask_dir is not None:
                     self.mask_paths.append(os.path.join(self.mask_dir, seal, phase, os.path.basename(img_path)))
+                #TODO (Erik) - labels should be strings so seals can have names
                 self.labels.append(classes.index(int(seal)))
 
     def __len__(self):

@@ -28,6 +28,7 @@ precision_metric = evaluate.load("precision")
 recall_metric = evaluate.load("recall")
 f1_metric = evaluate.load("f1")
 
+#TODO (Erik) - labels should be strings so seals can have names
 classes = []
 for seal_folder in os.listdir("../storage/date_split"):
     classes.append(int(seal_folder))
