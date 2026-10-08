@@ -202,8 +202,18 @@ if uploaded_files:
 
         if st.session_state.compare > 0:
 
-            #TODO (Erik) - labels should be strings so seals can have names (look up exact folder first, then without leading zeros)
-            selected_label = str(int(predictions[st.session_state.compare-1]['label']))
+            #Labels are now strings. Looks for the exact folder name first,
+            # then try the name without leading zeros for backwards compatibility.
+            selected_label = predictions[st.session_state.compare - 1]['label']
+
+            seal_dir = Path(f"app/seal_imgs/{selected_label}")
+
+            if not seal_dir.exists() and selected_label.isdigit():
+                unpadded_label = str(int(selected_label))
+                unpadded_seal_dir = Path(f"app/seal_imgs/{unpadded_label}")
+
+                if unpadded_seal_dir.exists():
+                    selected_label = unpadded_label
             train_folder = Path(f"app/seal_imgs/{selected_label}/train")
             dev_folder = Path(f"app/seal_imgs/{selected_label}/dev")
 

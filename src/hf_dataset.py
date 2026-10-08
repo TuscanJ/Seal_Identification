@@ -8,23 +8,20 @@ import pandas as pd
 
 DATA_FOLDER = "../storage/date_split"
 
-#TODO (Erik) - labels should be strings so seals can have names
-classes = []
-for seal_folder in os.listdir(DATA_FOLDER):
-    classes.append(int(seal_folder))
-classes.sort()
+#Labels are strings so seals can have names.
+classes = sorted(os.listdir(DATA_FOLDER))
 
 class HFDataset(Dataset):
     # This init function is run once, when a dataset object is initialized
     def __init__(self, img_dir, phase, transform = None, mask_dir=None, processor=None):
-        
+
         self.img_dir = img_dir
         self.mask_dir = mask_dir
         if mask_dir is not None:
             self.mask_paths = []
         self.image_paths = []
         self.labels = []
-        self.classes = sorted(os.listdir(self.img_dir)) 
+        self.classes = sorted(os.listdir(self.img_dir))
         self.processor = processor
         self.transform = transform
 
@@ -34,8 +31,9 @@ class HFDataset(Dataset):
                 self.image_paths.append(os.path.join(self.img_dir, seal, phase, img_path))
                 if mask_dir is not None:
                     self.mask_paths.append(os.path.join(self.mask_dir, seal, phase, img_path))
-                #TODO (Erik) - labels should be strings so seals can have names
-                self.labels.append(classes.index(int(seal)))
+
+                #Convert the string seal name to the model's integer class index.
+                self.labels.append(classes.index(seal))
 
     # Function that returns the number of datapoints in the dataset
     def __len__(self):
@@ -47,7 +45,7 @@ class HFDataset(Dataset):
         if self.mask_dir is not None:
             mask_path = self.mask_paths[idx]
             mask = torch.load(mask_path)
-        else: 
+        else:
             mask = torch.ones([224, 224])
         label = self.labels[idx]
         if(img_path.lower().endswith(('.png', '.jpg', '.jpeg', '.tiff'))):
@@ -61,7 +59,7 @@ class HFDataset(Dataset):
         else:
             print(img_path)
             return None
-        
+
 class HFMinMaxDataset(Dataset):
     def __init__(self, img_dir, phase, transform=None, mask_dir=None, processor=None, min_per_class=0, max_per_class=None):
         self.img_dir = img_dir
@@ -70,7 +68,7 @@ class HFMinMaxDataset(Dataset):
             self.mask_paths = []
         self.image_paths = []
         self.labels = []
-        self.classes = sorted(os.listdir(self.img_dir)) 
+        self.classes = sorted(os.listdir(self.img_dir))
         self.processor = processor
         self.transform = transform
 
@@ -82,7 +80,7 @@ class HFMinMaxDataset(Dataset):
             seal_dir = os.path.join(self.img_dir, seal, phase)
             if not os.path.isdir(seal_dir): continue
 
-            img_list = [os.path.join(seal_dir, f) for f in os.listdir(seal_dir) 
+            img_list = [os.path.join(seal_dir, f) for f in os.listdir(seal_dir)
                         if f.lower().endswith(('.png', '.jpg', '.jpeg', '.tiff'))]
 
             if len(img_list) < min_per_class:
@@ -100,8 +98,9 @@ class HFMinMaxDataset(Dataset):
                 self.image_paths.append(img_path)
                 if mask_dir is not None:
                     self.mask_paths.append(os.path.join(self.mask_dir, seal, phase, os.path.basename(img_path)))
-                #TODO (Erik) - labels should be strings so seals can have names
-                self.labels.append(classes.index(int(seal)))
+
+                # Convert the string seal name to the model's integer class index.
+                self.labels.append(classes.index(seal))
 
     def __len__(self):
         return len(self.labels)
@@ -111,12 +110,12 @@ class HFMinMaxDataset(Dataset):
         if self.mask_dir is not None:
             mask_path = self.mask_paths[idx]
             mask = torch.load(mask_path)
-        else: 
+        else:
             mask = torch.ones([224, 224])
         label = self.labels[idx]
 
         image = Image.open(img_path).convert('RGB')
-        if self.transform:  
+        if self.transform:
             image = self.transform(image)
         encoding = self.processor(images=image, return_tensors="pt", do_normalize=False, do_resize=False, do_rescale=False)
         pixel_values = encoding["pixel_values"].squeeze(0)

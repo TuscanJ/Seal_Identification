@@ -28,11 +28,8 @@ precision_metric = evaluate.load("precision")
 recall_metric = evaluate.load("recall")
 f1_metric = evaluate.load("f1")
 
-#TODO (Erik) - labels should be strings so seals can have names
-classes = []
-for seal_folder in os.listdir("../storage/date_split"):
-    classes.append(int(seal_folder))
-classes.sort()
+# Labels are strings so seals can have names.
+classes = sorted(os.listdir("../storage/date_split"))
 
 def save_classification_report(true_labels, predictions, model, train_dataset, file_path="class_metrics.csv"):
     true_labels = [str(label) for label in true_labels]
