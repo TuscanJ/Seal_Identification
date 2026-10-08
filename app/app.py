@@ -263,9 +263,10 @@ if uploaded_files:
 
 
         filename = st.text_input("Enter filename to save this image:", default_filename)
-        st.markdown("### 💾 Save Cropped Image")
-        #TODO - Change this to "Add to Queue" button
-        if st.button("💾 Save Image"):
+        st.markdown("### 💾 Add Image to Queue")
+
+        if st.button("💾 Add Image"):
+            #TODO - Change this to add image to a queue (local or shared?)
             save_path = os.path.join(st.session_state.saved_crops_dir, filename)
             cropped_image.save(save_path)
             st.success(f"Image saved as {filename}")
