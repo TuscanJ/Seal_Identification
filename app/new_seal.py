@@ -1,4 +1,6 @@
 import json
+import os
+import uuid
 from datetime import datetime
 from pathlib import Path
 
@@ -148,8 +150,10 @@ def load_queue():
     arguments: None
     returns: list of queue entries (empty if no manifest yet)
     """
-    #TODO: return json.load of QUEUE_MANIFEST, [] if it does not exist
-    return []
+    if not QUEUE_MANIFEST.exists():
+        return []
+    with open(QUEUE_MANIFEST, encoding="utf-8") as f:
+        return json.load(f)
 
 def save_queue(queue):
     """
@@ -157,17 +161,20 @@ def save_queue(queue):
     arguments: queue- list of queue entries
     returns: None
     """
-    #TODO: mkdir QUEUE_DIR, json.dump to QUEUE_MANIFEST
-    pass
+    QUEUE_DIR.mkdir(parents=True, exist_ok=True)
+    with open(QUEUE_MANIFEST, "w", encoding="utf-8") as f:
+        json.dump(queue, f, indent=4)
 
-def next_available_id():
-    """
-    Desc: Gets the id a new seal should be given
-    arguments: None
-    returns: highest id in use (seal_imgs folders + queue) plus one
-    """
-    #TODO
-    return 0
+
+#Probably don't need this for now.
+#    def next_available_id():
+#       """
+#        Desc: Gets the id a new seal should be given
+#        arguments: None
+#        returns: highest id in use (seal_imgs folders + queue) plus one
+#        """
+#        #TODO
+#        return 0
 
 def queue_for_training(cropped_image, seal_name, source_filename, seal_class="new"):
     """
@@ -179,7 +186,7 @@ def queue_for_training(cropped_image, seal_name, source_filename, seal_class="ne
     returns: the queue entry that was added
     """
     entry = {
-        "id": next_available_id(),
+        "id": uuid.uuid4().hex,
         "seal_name": seal_name,
         "class": seal_class,
         "image_path": None,  #TODO: QUEUE_DIR/{id}/{source_filename}
