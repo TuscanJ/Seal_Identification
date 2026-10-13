@@ -12,13 +12,15 @@ import zipfile
 from pathlib import Path
 import os
 
+from new_seal import init_new_seal_state, render_new_seal_button
+
 os.environ["STREAMLIT_WATCHER_TYPE"] = "none"
 
 
 # Setup constants
 if not os.path.exists("VIT"):
     gdown.download_folder("https://drive.google.com/drive/folders/1rPSmx28DGFKN-lAN2gTosglsZigJoSzZ?usp=drive_link", output="VIT", quiet=False, use_cookies=False)
-    
+
 MODEL_DIR = "VIT"
 PROCESSOR_DIR = "VIT/saved_processor"
 
@@ -72,7 +74,7 @@ def load_model_and_processor():
     """
     model = ViTForImageClassification.from_pretrained(MODEL_DIR)
     processor = ViTImageProcessor.from_pretrained(PROCESSOR_DIR)
-    
+
     id2label = model.config.id2label
 
     return model, processor, id2label
@@ -106,6 +108,8 @@ if 'compare' not in st.session_state:
     st.session_state.compare = 0
 if 'selected_img' not in st.session_state:
     st.session_state.selected_img = 0
+
+init_new_seal_state()
 
 def reset_selected_img():
     st.session_state.selected_img = 0
@@ -171,7 +175,7 @@ if uploaded_files:
     )
 
     #Preview of cropped image
-    st.image(cropped_image, caption="Cropped Preview", use_container_width=True) 
+    st.image(cropped_image, caption="Cropped Preview", use_container_width=True)
 
     #Button to confirm img crop
     if st.button("✅ Confirm Crop"):
@@ -194,9 +198,22 @@ if uploaded_files:
         conf_score = predictions[2]['score'] * 100
         st.button(f"- **{predictions[2]['label']}** with confidence **{conf_score:.0f}**%", on_click=compare3)
 
+        render_new_seal_button(predictions)
+
         if st.session_state.compare > 0:
 
-            selected_label = str(int(predictions[st.session_state.compare-1]['label']))
+            #Labels are now strings. Looks for the exact folder name first,
+            # then try the name without leading zeros for backwards compatibility.
+            selected_label = predictions[st.session_state.compare - 1]['label']
+
+            seal_dir = Path(f"app/seal_imgs/{selected_label}")
+
+            if not seal_dir.exists() and selected_label.isdigit():
+                unpadded_label = str(int(selected_label))
+                unpadded_seal_dir = Path(f"app/seal_imgs/{unpadded_label}")
+
+                if unpadded_seal_dir.exists():
+                    selected_label = unpadded_label
             train_folder = Path(f"app/seal_imgs/{selected_label}/train")
             dev_folder = Path(f"app/seal_imgs/{selected_label}/dev")
 
@@ -254,10 +271,12 @@ if uploaded_files:
         with col2:
             st.button("Next ➡️", on_click=go_next, disabled=current_index == total_images - 1)
 
-                
+
         filename = st.text_input("Enter filename to save this image:", default_filename)
-        st.markdown("### 💾 Save Cropped Image")
-        if st.button("💾 Save Image"):
+        st.markdown("### 💾 Add Image to Queue")
+
+        if st.button("💾 Add Image"):
+            #TODO - Change this to add image to a queue (local or shared?)
             save_path = os.path.join(st.session_state.saved_crops_dir, filename)
             cropped_image.save(save_path)
             st.success(f"Image saved as {filename}")
@@ -282,6 +301,3 @@ if st.session_state.saved_files:
             file_name="cropped_images.zip",
             mime="application/zip"
         )
-
-
-
