@@ -276,7 +276,7 @@ if uploaded_files:
         st.markdown("### 💾 Add Image to Queue")
 
         if st.button("💾 Add Image"):
-            #TODO - Change this to add image to a queue (local or shared?)
+            #TODO - Change this to add image to a queue (local or shared?) using seal_queue.queue_for_training with seal_class="old"
             save_path = os.path.join(st.session_state.saved_crops_dir, filename)
             cropped_image.save(save_path)
             st.success(f"Image saved as {filename}")
