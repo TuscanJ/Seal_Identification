@@ -219,3 +219,4 @@ __marimo__/
 *.safetensors
 
 VIT/
+app/training_queue/

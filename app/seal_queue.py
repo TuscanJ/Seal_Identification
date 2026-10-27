@@ -4,40 +4,61 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 
-QUEUE_DIR = Path("app/training_queue")
-QUEUE_MANIFEST = QUEUE_DIR / "queue.json"
+#Shared queue location. Defaults to a folder next to this file; on the server, set SEAL_QUEUE_DIR to the shared research folder.
+QUEUE_DIR = Path(os.environ.get("SEAL_QUEUE_DIR", Path(__file__).parent / "training_queue")).expanduser()
+
+#Let everyone in the research group read, move and delete queued files, not just whoever created them.
+os.umask(0o002)
 
 def load_queue():
     """
-    Desc: Reads the training queue manifest
+    Desc: Reads every entry in the training queue
     arguments: None
-    returns: list of queue entries (empty if no manifest yet)
+    returns: list of queue entries, oldest first (empty if the queue folder does not exist)
     """
-    if not QUEUE_MANIFEST.exists():
+    if not QUEUE_DIR.exists():
         return []
-    with open(QUEUE_MANIFEST, encoding="utf-8") as f:
-        return json.load(f)
+    entries = []
+    for p in QUEUE_DIR.glob("*/*.json"):
+        try:
+            entries.append(json.loads(p.read_text(encoding="utf-8")))
+        except (OSError, json.JSONDecodeError):
+            #Another user may be moving or writing this entry right now, skip it this time
+            continue
+    return sorted(entries, key=lambda e: e["queued_at"])
 
-def save_queue(queue):
+def save_entry(entry):
     """
-    Desc: Writes the training queue manifest
-    arguments: queue- list of queue entries
+    Desc: Writes one queue entry next to its image
+    arguments: entry- queue entry from queue_for_training
     returns: None
     """
-    QUEUE_DIR.mkdir(parents=True, exist_ok=True)
-    with open(QUEUE_MANIFEST, "w", encoding="utf-8") as f:
-        json.dump(queue, f, indent=4)
+    entry_path = QUEUE_DIR / entry["seal_name"] / f"{entry['id']}.json"
+    #Write to a temp file and rename so other users never read a half-written entry
+    tmp_path = entry_path.with_suffix(".tmp")
+    with open(tmp_path, "w", encoding="utf-8") as f:
+        json.dump(entry, f, indent=4)
+    os.replace(tmp_path, entry_path)
 
+def save_image(image, image_path):
+    """
+    Desc: Saves a queued image
+    arguments: image- PIL image to save
+               image_path- path relative to QUEUE_DIR
+    returns: None
+    """
+    full_path = QUEUE_DIR / image_path
+    full_path.parent.mkdir(parents=True, exist_ok=True)
+    image.save(full_path)
 
-#Probably don't need this for now.
-#    def next_available_id():
-#       """
-#        Desc: Gets the id a new seal should be given
-#        arguments: None
-#        returns: highest id in use (seal_imgs folders + queue) plus one
-#        """
-#        #TODO
-#        return 0
+def check_seal_name(seal_name):
+    """
+    Desc: Stops a seal name from writing outside QUEUE_DIR
+    arguments: seal_name- name given to the seal
+    returns: None, raises ValueError if the name is not a single folder name
+    """
+    if not seal_name or seal_name in (".", "..") or "/" in seal_name or "\\" in seal_name:
+        raise ValueError(f"Invalid seal name: {seal_name!r}")
 
 def queue_for_training(cropped_image, seal_name, source_filename, seal_class="new"):
     """
@@ -48,14 +69,16 @@ def queue_for_training(cropped_image, seal_name, source_filename, seal_class="ne
                seal_class- "new" for a new seal, "old" for a new image of a known seal
     returns: the queue entry that was added
     """
+    check_seal_name(seal_name)
+    entry_id = uuid.uuid4().hex
     entry = {
-        "id": uuid.uuid4().hex,
+        "id": entry_id,
         "seal_name": seal_name,
         "class": seal_class,
-        "image_path": None,  #TODO: QUEUE_DIR/{id}/{source_filename}
+        "image_path": f"{seal_name}/{entry_id}.jpg",
         "source_filename": source_filename,
         "queued_at": datetime.now().isoformat(),
     }
-    #TODO: save cropped_image to entry["image_path"]
-    #TODO: queue = load_queue(); queue.append(entry); save_queue(queue)
+    save_image(cropped_image, entry["image_path"])
+    save_entry(entry)
     return entry
