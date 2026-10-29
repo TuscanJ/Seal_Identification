@@ -1,7 +1,6 @@
 import json
 import os
 import uuid
-from datetime import datetime
 from pathlib import Path
 
 #Shared queue location. Defaults to a folder next to this file; on the server, set SEAL_QUEUE_DIR to the shared research folder.
@@ -14,7 +13,7 @@ def load_queue():
     """
     Desc: Reads every entry in the training queue
     arguments: None
-    returns: list of queue entries, oldest first (empty if the queue folder does not exist)
+    returns: list of queue entries (empty if the queue folder does not exist)
     """
     if not QUEUE_DIR.exists():
         return []
@@ -25,7 +24,7 @@ def load_queue():
         except (OSError, json.JSONDecodeError):
             #Another user may be moving or writing this entry right now, skip it this time
             continue
-    return sorted(entries, key=lambda e: e["queued_at"])
+    return entries
 
 def save_entry(entry):
     """
@@ -33,7 +32,7 @@ def save_entry(entry):
     arguments: entry- queue entry from queue_for_training
     returns: None
     """
-    entry_path = QUEUE_DIR / entry["seal_name"] / f"{entry['id']}.json"
+    entry_path = QUEUE_DIR / entry["seal_number"] / f"{entry['id']}.json"
     #Write to a temp file and rename so other users never read a half-written entry
     tmp_path = entry_path.with_suffix(".tmp")
     with open(tmp_path, "w", encoding="utf-8") as f:
@@ -51,33 +50,32 @@ def save_image(image, image_path):
     full_path.parent.mkdir(parents=True, exist_ok=True)
     image.save(full_path)
 
-def check_seal_name(seal_name):
+def check_seal_number(seal_number):
     """
-    Desc: Stops a seal name from writing outside QUEUE_DIR
-    arguments: seal_name- name given to the seal
-    returns: None, raises ValueError if the name is not a single folder name
+    Desc: Makes sure a seal number is only digits, so it can't write outside QUEUE_DIR
+    arguments: seal_number- seal's subject number, as a string
+    returns: None, raises ValueError if the number is not only digits
     """
-    if not seal_name or seal_name in (".", "..") or "/" in seal_name or "\\" in seal_name:
-        raise ValueError(f"Invalid seal name: {seal_name!r}")
+    if not seal_number.isdigit():
+        raise ValueError(f"Invalid seal number: {seal_number!r}")
 
-def queue_for_training(cropped_image, seal_name, source_filename, seal_class="new"):
+def queue_for_training(cropped_image, seal_number, source_filename, seal_class="new"):
     """
     Desc: Saves the image and adds the seal to the training queue
     arguments: cropped_image- confirmed crop of the uploaded image
-               seal_name- name given to the seal
+               seal_number- seal's subject number, as a string
                source_filename- name of the uploaded file
                seal_class- "new" for a new seal, "old" for a new image of a known seal
     returns: the queue entry that was added
     """
-    check_seal_name(seal_name)
+    check_seal_number(seal_number)
     entry_id = uuid.uuid4().hex
     entry = {
         "id": entry_id,
-        "seal_name": seal_name,
+        "seal_number": seal_number,
         "class": seal_class,
-        "image_path": f"{seal_name}/{entry_id}.jpg",
+        "image_path": f"{seal_number}/{entry_id}.jpg",
         "source_filename": source_filename,
-        "queued_at": datetime.now().isoformat(),
     }
     save_image(cropped_image, entry["image_path"])
     save_entry(entry)

@@ -57,7 +57,7 @@ def render_new_seal_flow(cropped_image, source_filename, known_seals):
 
     elif stage == STAGE_QUEUED:
         entry = st.session_state.new_seal_entry
-        st.success(f"Image queued for training as new seal {entry['seal_name']}")
+        st.success(f"Image queued for training as new seal {entry['seal_number']}")
 
 
 # New seal button
