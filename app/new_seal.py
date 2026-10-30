@@ -4,7 +4,7 @@ from pathlib import Path
 import streamlit as st
 from PIL import Image
 
-from seal_queue import next_seal_number, queue_new_seal
+from seal_queue import QUEUE_DIR, load_queue, next_seal_number, queue_new_seal
 
 SEAL_IMGS_DIR = Path("app/seal_imgs") #Change this in Sprint 2 + add option for windows and linux
 NEW_SEAL_CONF_THRESHOLD = 0.75
@@ -22,6 +22,8 @@ def init_new_seal_state():
         st.session_state.new_seal_stage = None
     if "new_seal_entry" not in st.session_state:
         st.session_state.new_seal_entry = None
+    if "show_queued_seals" not in st.session_state:
+        st.session_state.show_queued_seals = False
 
 def reset_new_seal():
     """
@@ -31,6 +33,44 @@ def reset_new_seal():
     """
     st.session_state.new_seal_stage = None
     st.session_state.new_seal_entry = None
+
+def toggle_queued_seals():
+    """Toggle the queued seals list open or closed."""
+    st.session_state.show_queued_seals = not st.session_state.show_queued_seals
+
+def render_queued_seals():
+    """Display the queued seal entries and their images."""
+    entries = load_queue()
+    st.markdown("### 📋 Queued Seals")
+
+    if not entries:
+        st.info("There are no seals in the training queue yet.")
+        return
+
+    for entry in entries:
+        seal_name = entry.get("seal_name", "Unknown")
+        image_relative_path = entry.get("image_path", "")
+        image_path = QUEUE_DIR / image_relative_path
+
+        st.markdown(f"**Seal {seal_name}** · {entry.get('class', 'unknown')}")
+        st.caption(
+            f"Queued: {entry.get('queued_at', 'Unknown date')} · "
+            f"Source file: {entry.get('source_filename', 'Unknown file')}"
+        )
+
+        # Ensure an entry cannot use a crafted image path outside the queue folder.
+        try:
+            resolved_queue_dir = QUEUE_DIR.resolve()
+            resolved_image_path = image_path.resolve()
+            resolved_image_path.relative_to(resolved_queue_dir)
+        except (OSError, ValueError):
+            st.warning("The queued image path is invalid.")
+            continue
+
+        if resolved_image_path.is_file():
+            st.image(str(resolved_image_path), caption=f"Seal {seal_name}")
+        else:
+            st.warning("The image for this queue entry could not be found.")
 
 def render_new_seal_flow(cropped_image, source_filename, known_seals):
     """
@@ -86,5 +126,15 @@ def render_new_seal_button(predictions):
     arguments: predictions- top 3 predictions from predict_image
     returns: None
     """
+    button_label = (
+        "Hide Queued Seals"
+        if st.session_state.show_queued_seals
+        else "Show Queued Seals"
+    )
+    st.button(button_label, on_click=toggle_queued_seals)
+
+    if st.session_state.show_queued_seals:
+        render_queued_seals()
+
     #TODO: use new_seal_popup(predictions[0]['score']) to highlight the button
     st.button("🆕 New Seal", on_click=start_new_seal)
