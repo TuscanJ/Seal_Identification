@@ -131,7 +131,16 @@ model, processor, id2label = load_model_and_processor()
 classifier = create_classifier(model, processor)
 
 # Number of seals to show (defualts to 3)
-seals_to_show = 3
+if "seals_to_show" not in st.session_state:
+    st.session_state.seals_to_show = 3
+def show_more_button():
+    if st.session_state.seals_to_show = 3:
+        if st.button("Show More Seals 🔽"):
+            st.session_state.seals_to_show = 10
+    else
+        if st.button("Show Fewer Seals 🔼"):
+            st.session_state.seals_to_show = 3
+
 
 if uploaded_files:
     if "img_index" not in st.session_state:
@@ -185,11 +194,13 @@ if uploaded_files:
         st.markdown("### 🔍 Top Predictions:")
         st.text("Formatted as: {Seal individual} with confidence {score of confidence}")
 
-        for i in range(seals_to_show):
+        for i in range(st.session_state.seals_to_show):
             conf_score = predictions[i]['score'] * 100
             st.button(f"- **{predictions[i]['label']}** with confidence **{conf_score:.0f}**%", on_click=compare(i+1))
 
         render_new_seal_button(predictions)
+
+        render_show_more_button()
 
         if st.session_state.compare > 0:
 
@@ -238,9 +249,9 @@ if uploaded_files:
 
         prediction_options = [
             f"{predictions[i]['label']} ({predictions[i]['score']*100:.0f}%)"
-            for i in range(seals_to_show)
+            for i in range(st.session_state.seals_to_show)
         ]
-        prediction_labels = [predictions[i]['label'] for i in range[seals_to_show]]
+        prediction_labels = [predictions[i]['label'] for i in range[st.session_state.seals_to_show]]
 
         selected_option = st.selectbox("Select the correct seal label:", prediction_options)
         selected_label = prediction_labels[prediction_options.index(selected_option)]
