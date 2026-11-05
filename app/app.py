@@ -44,6 +44,7 @@ def load_owlvit():
     model = OwlViTForObjectDetection.from_pretrained(OWL_MODEL)
     return processor, model
 
+@st.cache_data
 def get_recommended_crop(image: Image.Image, text="harbor seal's head"):
     """
     Desc: Uses OwlVIT to get coordinates of a box around seals head
@@ -95,14 +96,15 @@ def create_classifier(_model, _processor):
     )
     return classifier
 
-def predict_image(classifier, image):
+@st.cache_data
+def predict_image(_classifier, image):
     """
     Desc: predicts an image using the given classifier
-    arguments: classifier- classifier to be used on image
+    arguments: _classifier- classifier to be used on image
                image- image to be classified
     returns: top 10 most likely classes for image
     """
-    return classifier(image, top_k=10)
+    return _classifier(image, top_k=10)
 
 if 'compare' not in st.session_state:
     st.session_state.compare = 0
