@@ -135,11 +135,9 @@ if "seals_to_show" not in st.session_state:
     st.session_state.seals_to_show = 3
 def show_more_button():
     if st.session_state.seals_to_show == 3:
-        if st.button("Show More Seals 🔽"):
-            st.session_state.seals_to_show = 10
+        st.button("Show More Seals 🔽", on_click=lambda: st.session_state.update(seals_to_show=10))
     else:
-        if st.button("Show Fewer Seals 🔼"):
-            st.session_state.seals_to_show = 3
+        st.button("Show Fewer Seals 🔼", on_click=lambda: st.session_state.update(seals_to_show=3))
 
 
 if uploaded_files:
@@ -196,11 +194,11 @@ if uploaded_files:
 
         for i in range(st.session_state.seals_to_show):
             conf_score = predictions[i]['score'] * 100
-            st.button(f"- **{predictions[i]['label']}** with confidence **{conf_score:.0f}**%", on_click=compare(i+1))
+            st.button(f"- **{predictions[i]['label']}** with confidence **{conf_score:.0f}**%", on_click=compare,args=(i+1,))
 
         render_new_seal_button(predictions)
 
-        render_show_more_button()
+        show_more_button()
 
         if st.session_state.compare > 0:
 
@@ -225,7 +223,7 @@ if uploaded_files:
             all_files = train_files + dev_files
 
             image1 = cropped_image
-            image2 = Image.open(all_files[st.session_state.selected_img])
+            image2 = Image.open(all_files[st.session_state.selected_img % len(all_files)])
 
             def next_image():
                 st.session_state.selected_img += 1
@@ -251,7 +249,7 @@ if uploaded_files:
             f"{predictions[i]['label']} ({predictions[i]['score']*100:.0f}%)"
             for i in range(st.session_state.seals_to_show)
         ]
-        prediction_labels = [predictions[i]['label'] for i in range[st.session_state.seals_to_show]]
+        prediction_labels = [predictions[i]['label'] for i in range(st.session_state.seals_to_show)]
 
         selected_option = st.selectbox("Select the correct seal label:", prediction_options)
         selected_label = prediction_labels[prediction_options.index(selected_option)]
