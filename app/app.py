@@ -12,7 +12,7 @@ import zipfile
 from pathlib import Path
 import os
 
-from new_seal import init_new_seal_state, render_new_seal_button
+from new_seal import init_new_seal_state, render_new_seal_button, render_new_seal_flow, reset_new_seal
 
 os.environ["STREAMLIT_WATCHER_TYPE"] = "none"
 
@@ -117,6 +117,7 @@ def reset_selected_img():
 def compare(i):
     st.session_state.compare = i
     reset_selected_img()
+    reset_new_seal()
 
 # Page setup
 st.set_page_config(page_title="Seal Identifier 🦭", layout="centered")
@@ -129,6 +130,7 @@ uploaded_files = st.file_uploader("Choose image(s)...", type=["jpg", "jpeg", "pn
 # Load model and classifier
 model, processor, id2label = load_model_and_processor()
 classifier = create_classifier(model, processor)
+known_seals = [str(int(label)) for label in id2label.values() if label.isdigit()]
 
 # Number of seals to show (defualts to 3)
 if "seals_to_show" not in st.session_state:
@@ -197,6 +199,7 @@ if uploaded_files:
             st.button(f"- **{predictions[i]['label']}** with confidence **{conf_score:.0f}**%", on_click=compare,args=(i+1,))
 
         render_new_seal_button(predictions)
+        render_new_seal_flow(cropped_image, uploaded_files[current_index].name, known_seals)
 
         show_more_button()
 
@@ -260,10 +263,12 @@ if uploaded_files:
         def go_previous():
             st.session_state.img_index = max(0, st.session_state.img_index - 1)
             st.session_state.crop_confirmed = False
+            reset_new_seal()
 
         def go_next():
             st.session_state.img_index = min(total_images - 1, st.session_state.img_index + 1)
             st.session_state.crop_confirmed = False
+            reset_new_seal()
 
         col1, col2 = st.columns([1, 1])
         with col1:
