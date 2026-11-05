@@ -134,10 +134,10 @@ classifier = create_classifier(model, processor)
 if "seals_to_show" not in st.session_state:
     st.session_state.seals_to_show = 3
 def show_more_button():
-    if st.session_state.seals_to_show = 3:
+    if st.session_state.seals_to_show == 3:
         if st.button("Show More Seals 🔽"):
             st.session_state.seals_to_show = 10
-    else
+    else:
         if st.button("Show Fewer Seals 🔼"):
             st.session_state.seals_to_show = 3
 
