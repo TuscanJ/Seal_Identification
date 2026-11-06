@@ -48,15 +48,12 @@ def render_queued_seals():
         return
 
     for entry in entries:
-        seal_name = entry.get("seal_name", "Unknown")
+        seal_number = entry.get("seal_number", "Unknown")
         image_relative_path = entry.get("image_path", "")
         image_path = QUEUE_DIR / image_relative_path
 
-        st.markdown(f"**Seal {seal_name}** · {entry.get('class', 'unknown')}")
-        st.caption(
-            f"Queued: {entry.get('queued_at', 'Unknown date')} · "
-            f"Source file: {entry.get('source_filename', 'Unknown file')}"
-        )
+        st.markdown(f"**Seal {seal_number}** · {entry.get('class', 'unknown')}")
+        st.caption(f"Source file: {entry.get('source_filename', 'Unknown file')}")
 
         # Ensure an entry cannot use a crafted image path outside the queue folder.
         try:
@@ -68,7 +65,7 @@ def render_queued_seals():
             continue
 
         if resolved_image_path.is_file():
-            st.image(str(resolved_image_path), caption=f"Seal {seal_name}")
+            st.image(str(resolved_image_path), caption=f"Seal {seal_number}")
         else:
             st.warning("The image for this queue entry could not be found.")
 
