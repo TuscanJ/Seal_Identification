@@ -219,3 +219,7 @@ __marimo__/
 *.safetensors
 
 VIT/
+
+# Full seal photo database (~1 GB), too big for git. app/seals_dev.db is the committed one.
+app/seals.db
+app/seals.db-journal
