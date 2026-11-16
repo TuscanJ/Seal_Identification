@@ -11,9 +11,10 @@ import shutil
 import zipfile
 from pathlib import Path
 import os
+import sqlite3
 
 from new_seal import init_new_seal_state, render_new_seal_button, render_new_seal_flow, reset_new_seal
-from seal_db import SIDE_NAMES, load_seal_photos
+from seal_db import SIDE_NAMES, add_seal_photo, exif_date_taken, guess_side, load_seal_photos
 
 os.environ["STREAMLIT_WATCHER_TYPE"] = "none"
 
@@ -122,6 +123,46 @@ def compare(i):
     reset_selected_img()
     reset_new_seal()
 
+@st.dialog("Save to database")
+def confirm_save_to_db(image, seal_id, source_file, date_taken, default_side):
+    """
+    Desc: Popup asking the user to double check the label before saving a photo to the database
+    arguments: image- confirmed crop to save
+               seal_id- label chosen in "Select the correct seal label"
+               source_file- name of the uploaded file
+               date_taken- date from the photo's EXIF, or None
+               default_side- side guessed from the filename, or None
+    returns: None
+    """
+    st.image(image, use_container_width=True)
+    st.warning(f"Are you sure this is seal **{seal_id}**? It will be added to the database "
+               "and used as a reference photo for this seal.")
+    st.caption(f"File: {source_file} · Taken: {date_taken or 'unknown'}")
+
+    side_options = [None, "LS", "F", "RS"]
+    side = st.selectbox("Side of the seal", side_options, index=side_options.index(default_side),
+                        format_func=lambda s: SIDE_NAMES.get(s, "Unknown"))
+
+    col1, col2 = st.columns(2)
+    with col1:
+        confirmed = st.button("✅ Yes, the label is correct")
+    with col2:
+        cancelled = st.button("❌ Cancel")
+
+    if confirmed:
+        try:
+            photo_num = add_seal_photo(seal_id, image, side, date_taken, source_file)
+        except sqlite3.Error as e:
+            st.error(f"Could not save to the database: {e}")
+            return
+        if photo_num is None:
+            st.session_state.db_save_message = ("info", "This image is already in the database.")
+        else:
+            st.session_state.db_save_message = ("success", f"Saved as photo {photo_num} of seal {seal_id}.")
+        st.rerun()
+    if cancelled:
+        st.rerun()
+
 # Page setup
 st.set_page_config(page_title="Seal Identifier 🦭", layout="centered")
 st.title("Seal Individual Identifier 🦭")
@@ -157,7 +198,9 @@ if uploaded_files:
     total_images = len(image_files)
     current_index = st.session_state.img_index
     current_image_file = image_files[current_index]
-    original_image = Image.open(current_image_file).convert("RGB")
+    raw_image = Image.open(current_image_file)
+    date_taken = exif_date_taken(raw_image)  #Read before convert(), which drops EXIF
+    original_image = raw_image.convert("RGB")
 
     st.markdown(f"### Image {current_index + 1} of {total_images}")
     st.text(f"File: {uploaded_files[current_index].name}")
@@ -253,6 +296,13 @@ if uploaded_files:
 
         selected_option = st.selectbox("Select the correct seal label:", prediction_options)
         selected_label = prediction_labels[prediction_options.index(selected_option)]
+
+        if st.button("🗄️ Save to Database"):
+            confirm_save_to_db(cropped_image, selected_label, current_image_file.name,
+                               date_taken, guess_side(current_image_file.name))
+        if "db_save_message" in st.session_state:
+            kind, message = st.session_state.pop("db_save_message")
+            getattr(st, kind)(message)
 
         default_filename = f"{selected_label}.jpg"
 
