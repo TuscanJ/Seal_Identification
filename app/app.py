@@ -13,6 +13,7 @@ from pathlib import Path
 import os
 
 from new_seal import init_new_seal_state, render_new_seal_button, render_new_seal_flow, reset_new_seal
+from seal_db import SIDE_NAMES, load_seal_photos
 
 os.environ["STREAMLIT_WATCHER_TYPE"] = "none"
 
@@ -209,28 +210,9 @@ if uploaded_files:
 
         if st.session_state.compare > 0:
 
-            #Labels are now strings. Looks for the exact folder name first,
-            # then try the name without leading zeros for backwards compatibility.
             selected_label = predictions[st.session_state.compare - 1]['label']
-
-            seal_dir = Path(f"app/seal_imgs/{selected_label}")
-
-            if not seal_dir.exists() and selected_label.isdigit():
-                unpadded_label = str(int(selected_label))
-                unpadded_seal_dir = Path(f"app/seal_imgs/{unpadded_label}")
-
-                if unpadded_seal_dir.exists():
-                    selected_label = unpadded_label
-            train_folder = Path(f"app/seal_imgs/{selected_label}/train")
-            dev_folder = Path(f"app/seal_imgs/{selected_label}/dev")
-
-            train_files = list(train_folder.glob("*"))
-            dev_files = list(dev_folder.glob("*"))
-
-            all_files = train_files + dev_files
-
+            photos = load_seal_photos(selected_label)
             image1 = cropped_image
-            image2 = Image.open(all_files[st.session_state.selected_img % len(all_files)])
 
             def next_image():
                 st.session_state.selected_img += 1
@@ -250,7 +232,18 @@ if uploaded_files:
                 st.image(image1, caption="Unidentified Seal", use_container_width=True)
 
             with col2:
-                st.image(image2, caption=f"Seal {selected_label}", use_container_width=True)
+                if photos:
+                    photo_index = st.session_state.selected_img % len(photos)
+                    image_bytes, side, date_taken = photos[photo_index]
+                    st.image(
+                        image_bytes,
+                        caption=f"Seal {selected_label} · {SIDE_NAMES.get(side, 'Side unknown')} · "
+                                f"{date_taken[:10] if date_taken else 'Date unknown'} · "
+                                f"Photo {photo_index + 1} of {len(photos)}",
+                        use_container_width=True,
+                    )
+                else:
+                    st.warning(f"No database photos for seal {selected_label}.")
 
         prediction_options = [
             f"{predictions[i]['label']} ({predictions[i]['score']*100:.0f}%)"
