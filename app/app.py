@@ -14,7 +14,7 @@ import os
 import sqlite3
 
 from new_seal import init_new_seal_state, render_new_seal_button, render_new_seal_flow, reset_new_seal
-from seal_db import SIDE_NAMES, add_seal_photo, exif_date_taken, guess_side, load_seal_photos
+from seal_db import SIDE_NAMES, USING_DEV_DB, add_seal_photo, exif_date_taken, guess_side, load_seal_photos
 
 os.environ["STREAMLIT_WATCHER_TYPE"] = "none"
 
@@ -167,6 +167,8 @@ def confirm_save_to_db(image, seal_id, source_file, date_taken, default_side):
 st.set_page_config(page_title="Seal Identifier 🦭", layout="centered")
 st.title("Seal Individual Identifier 🦭")
 st.write("Upload a single image or a folder of images of seals. Navigate through them and see predictions!")
+if USING_DEV_DB:
+    st.caption("Using the developer database (3 photos per seal). Set SEAL_DB_PATH to use the full one.")
 
 # File uploader allows multiple files
 uploaded_files = st.file_uploader("Choose a folder of images...", type=["jpg", "jpeg", "png"], accept_multiple_files="directory")
