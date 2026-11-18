@@ -240,16 +240,22 @@ if uploaded_files:
             predictions = predict_image(classifier, cropped_image)
 
         st.markdown("### 🔍 Top Predictions:")
-        st.text("Formatted as: {Seal individual} with confidence {score of confidence}")
+        st.text("Formatted as: {Seal individual} · {confidence}%")
 
-        for i in range(st.session_state.seals_to_show):
-            conf_score = predictions[i]['score'] * 100
-            st.button(f"- **{predictions[i]['label']}** with confidence **{conf_score:.0f}**%", on_click=compare,args=(i+1,))
+        #Thin gray box around the predictions, laid out left to right, 3 per row
+        with st.container(border=True):
+            for row_start in range(0, st.session_state.seals_to_show, 3):
+                cols = st.columns(3)
+                for col, i in zip(cols, range(row_start, min(row_start + 3, st.session_state.seals_to_show))):
+                    with col:
+                        conf_score = predictions[i]['score'] * 100
+                        st.button(f"**{predictions[i]['label']}** · {conf_score:.0f}%",
+                                  on_click=compare, args=(i+1,), width="stretch")
+
+        show_more_button()
 
         render_new_seal_button(predictions)
         render_new_seal_flow(cropped_image, uploaded_files[current_index].name, known_seals)
-
-        show_more_button()
 
         if st.session_state.compare > 0:
 
