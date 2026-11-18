@@ -127,7 +127,8 @@ st.title("Seal Individual Identifier 🦭")
 st.write("Upload a single image or a folder of images of seals. Navigate through them and see predictions!")
 
 # File uploader allows multiple files
-uploaded_files = st.file_uploader("Choose image(s)...", type=["jpg", "jpeg", "png"], accept_multiple_files=True)
+uploaded_files = st.file_uploader("Choose a folder of images...", type=["jpg", "jpeg", "png"], accept_multiple_files="directory")
+uploaded_files = sorted(uploaded_files, key=lambda f: f.name)
 
 # Load model and classifier
 model, processor, id2label = load_model_and_processor()
@@ -145,9 +146,10 @@ def show_more_button():
 
 
 if uploaded_files:
-    if "img_index" not in st.session_state:
+    #Start from the first picture whenever a different set of pictures is uploaded
+    if st.session_state.get("uploaded_names") != [f.name for f in uploaded_files]:
+        st.session_state.uploaded_names = [f.name for f in uploaded_files]
         st.session_state.img_index = 0
-    if "crop_confirmed" not in st.session_state:
         st.session_state.crop_confirmed = False
 
     image_files = uploaded_files
@@ -265,12 +267,12 @@ if uploaded_files:
         def go_previous():
             st.session_state.img_index = max(0, st.session_state.img_index - 1)
             st.session_state.crop_confirmed = False
-            reset_new_seal()
+            compare(0)
 
         def go_next():
             st.session_state.img_index = min(total_images - 1, st.session_state.img_index + 1)
             st.session_state.crop_confirmed = False
-            reset_new_seal()
+            compare(0)
 
         col1, col2 = st.columns([1, 1])
         with col1:
