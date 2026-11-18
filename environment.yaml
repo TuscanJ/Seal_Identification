@@ -18,7 +18,7 @@ dependencies:
 
   - pip:
       - wandb
-      - streamlit==1.44.1
+      - streamlit==1.49.1
       - streamlit-cropper==0.2.2
       - streamlit-drawable-canvas==0.9.3
       - transformers==4.51.3
