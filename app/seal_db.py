@@ -8,8 +8,12 @@ from pathlib import Path
 import streamlit as st
 from PIL import Image
 
-#Seal photo database. Defaults to seals.db next to this file; on the server, set SEAL_DB_PATH to the shared copy.
-SEAL_DB_PATH = Path(os.environ.get("SEAL_DB_PATH", Path(__file__).parent / "seals.db")).expanduser()
+#Seal photo database. On the server, set SEAL_DB_PATH to the shared copy. Otherwise uses the full seals.db next to
+#this file if you have it, or the small seals_dev.db from git (3 photos per seal).
+_FULL_DB = Path(__file__).parent / "seals.db"
+_DEV_DB = Path(__file__).parent / "seals_dev.db"
+SEAL_DB_PATH = Path(os.environ.get("SEAL_DB_PATH") or (_FULL_DB if _FULL_DB.exists() else _DEV_DB)).expanduser()
+USING_DEV_DB = SEAL_DB_PATH.resolve() == _DEV_DB.resolve()
 
 SIDE_NAMES = {"LS": "Left side", "F": "Front", "RS": "Right side"}
 
