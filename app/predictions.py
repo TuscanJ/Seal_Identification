@@ -164,7 +164,6 @@ def confirm_save_to_db(image, seal_id, source_file, date_taken, default_side):
         st.rerun()
 
 # Page setup
-st.set_page_config(page_title="Seal Identifier 🦭", layout="centered")
 st.title("Seal Individual Identifier 🦭")
 st.write("Upload a single image or a folder of images of seals. Navigate through them and see predictions!")
 if USING_DEV_DB:
