@@ -15,6 +15,7 @@ import sqlite3
 
 from new_seal import init_new_seal_state, render_new_seal_button, render_new_seal_flow, reset_new_seal
 from seal_db import SIDE_NAMES, USING_DEV_DB, add_seal_photo, exif_date_taken, guess_side, load_seal_photos
+from seal_queue import queue_for_training, queued_seal_images, queued_seal_numbers
 
 os.environ["STREAMLIT_WATCHER_TYPE"] = "none"
 
@@ -112,6 +113,10 @@ if 'compare' not in st.session_state:
     st.session_state.compare = 0
 if 'selected_img' not in st.session_state:
     st.session_state.selected_img = 0
+if 'selected_queued' not in st.session_state:
+    st.session_state.selected_queued = None
+if 'show_all_queued' not in st.session_state:
+    st.session_state.show_all_queued = False
 
 init_new_seal_state()
 
@@ -120,28 +125,46 @@ def reset_selected_img():
 
 def compare(i):
     st.session_state.compare = i
+    st.session_state.selected_queued = None  #Only one comparison open at a time
     reset_selected_img()
     reset_new_seal()
 
-@st.dialog("Save to database")
-def confirm_save_to_db(image, seal_id, source_file, date_taken, default_side):
+def show_queued_seal(seal_number):
     """
-    Desc: Popup asking the user to double check the label before saving a photo to the database
+    Desc: Runs when a queued seal is clicked: shows its pictures and selects it as the label
+    arguments: seal_number- queued seal's number, as a string
+    returns: None
+    """
+    st.session_state.selected_queued = seal_number
+    st.session_state.selected_label = seal_number  #Changes "Select the correct seal label" to this seal
+    st.session_state.compare = 0
+    reset_new_seal()
+
+@st.dialog("Confirm label")
+def confirm_save(image, seal_id, is_queued, source_file, date_taken, default_side):
+    """
+    Desc: Popup asking the user to double check the label before saving to the database or the training queue
     arguments: image- confirmed crop to save
                seal_id- label chosen in "Select the correct seal label"
+               is_queued- True if seal_id is a queued new seal (saves to the training queue instead)
                source_file- name of the uploaded file
                date_taken- date from the photo's EXIF, or None
                default_side- side guessed from the filename, or None
     returns: None
     """
     st.image(image, use_container_width=True)
-    st.warning(f"Are you sure this is seal **{seal_id}**? It will be added to the database "
-               "and used as a reference photo for this seal.")
+    if is_queued:
+        st.warning(f"Are you sure this is queued seal **{seal_id}**? It will be added to the training queue "
+                   "with that seal's other pictures.")
+    else:
+        st.warning(f"Are you sure this is seal **{seal_id}**? It will be added to the database "
+                   "and used as a reference photo for this seal.")
     st.caption(f"File: {source_file} · Taken: {date_taken or 'unknown'}")
 
-    side_options = [None, "LS", "F", "RS"]
-    side = st.selectbox("Side of the seal", side_options, index=side_options.index(default_side),
-                        format_func=lambda s: SIDE_NAMES.get(s, "Unknown"))
+    if not is_queued:
+        side_options = [None, "LS", "F", "RS"]
+        side = st.selectbox("Side of the seal", side_options, index=side_options.index(default_side),
+                            format_func=lambda s: SIDE_NAMES.get(s, "Unknown"))
 
     col1, col2 = st.columns(2)
     with col1:
@@ -149,7 +172,15 @@ def confirm_save_to_db(image, seal_id, source_file, date_taken, default_side):
     with col2:
         cancelled = st.button("❌ Cancel")
 
-    if confirmed:
+    if confirmed and is_queued:
+        try:
+            queue_for_training(image, seal_id, source_file, seal_class="new")
+        except OSError as e:
+            st.error(f"Could not add to the training queue: {e}")
+            return
+        st.session_state.db_save_message = ("success", f"Added to the training queue as seal {seal_id}.")
+        st.rerun()
+    elif confirmed:
         try:
             photo_num = add_seal_photo(seal_id, image, side, date_taken, source_file)
         except sqlite3.Error as e:
@@ -187,6 +218,40 @@ def show_more_button():
     else:
         st.button("Show Fewer Seals 🔼", on_click=lambda: st.session_state.update(seals_to_show=3))
 
+def render_queued_seals_box(queued):
+    """
+    Desc: Draws the queued seals box, and the pictures of the queued seal that was clicked
+    arguments: queued- queued seal numbers from queued_seal_numbers
+    returns: None
+    """
+    st.markdown("### 📋 Queued Seals")
+    if not queued:
+        st.caption("No new seals are waiting in the training queue.")
+        return
+
+    shown = queued if st.session_state.show_all_queued else queued[:3]
+    with st.container(border=True):
+        for row_start in range(0, len(shown), 3):
+            for col, seal_number in zip(st.columns(3), shown[row_start:row_start + 3]):
+                with col:
+                    st.button(f"**{seal_number}**", key=f"queued-{seal_number}",
+                              on_click=show_queued_seal, args=(seal_number,), width="stretch")
+
+    if len(queued) > 3:
+        if st.session_state.show_all_queued:
+            st.button("Show Fewer Queued Seals 🔼", on_click=lambda: st.session_state.update(show_all_queued=False))
+        else:
+            st.button(f"Show More Queued Seals 🔽 ({len(queued)})", on_click=lambda: st.session_state.update(show_all_queued=True))
+
+    if st.session_state.selected_queued:
+        seal_number = st.session_state.selected_queued
+        images = queued_seal_images(seal_number)
+        st.markdown(f"#### Queued seal {seal_number} · {len(images)} picture(s)")
+        for row_start in range(0, len(images), 3):
+            for col, (path, source_filename) in zip(st.columns(3), images[row_start:row_start + 3]):
+                with col:
+                    st.image(str(path), caption=source_filename, use_container_width=True)
+
 
 if uploaded_files:
     #Start from the first picture whenever a different set of pictures is uploaded
@@ -194,6 +259,7 @@ if uploaded_files:
         st.session_state.uploaded_names = [f.name for f in uploaded_files]
         st.session_state.img_index = 0
         st.session_state.crop_confirmed = False
+        st.session_state.pop("selected_label", None)
 
     image_files = uploaded_files
     total_images = len(image_files)
@@ -253,7 +319,11 @@ if uploaded_files:
                         st.button(f"**{predictions[i]['label']}** · {conf_score:.0f}%",
                                   on_click=compare, args=(i+1,), width="stretch")
 
+        queued = queued_seal_numbers(known_seals)
+
         show_more_button()
+
+        render_queued_seals_box(queued)
 
         render_new_seal_button(predictions)
         render_new_seal_flow(cropped_image, uploaded_files[current_index].name, known_seals)
@@ -295,18 +365,22 @@ if uploaded_files:
                 else:
                     st.warning(f"No database photos for seal {selected_label}.")
 
-        prediction_options = [
-            f"{predictions[i]['label']} ({predictions[i]['score']*100:.0f}%)"
-            for i in range(st.session_state.seals_to_show)
-        ]
         prediction_labels = [predictions[i]['label'] for i in range(st.session_state.seals_to_show)]
+        scores = {p['label']: p['score'] for p in predictions}
+        label_options = prediction_labels + queued
 
-        selected_option = st.selectbox("Select the correct seal label:", prediction_options)
-        selected_label = prediction_labels[prediction_options.index(selected_option)]
+        #If the selected label is no longer listed (e.g. after Show Fewer Seals), go back to the top prediction
+        if st.session_state.get("selected_label") not in label_options:
+            st.session_state.pop("selected_label", None)
+        selected_label = st.selectbox(
+            "Select the correct seal label:", label_options, key="selected_label",
+            format_func=lambda label: f"{label} (queued)" if label in queued else f"{label} ({scores[label]*100:.0f}%)",
+        )
+        is_queued = selected_label in queued
 
-        if st.button("🗄️ Save to Database"):
-            confirm_save_to_db(cropped_image, selected_label, current_image_file.name,
-                               date_taken, guess_side(current_image_file.name))
+        if st.button("📋 Add to Training Queue" if is_queued else "🗄️ Save to Database"):
+            confirm_save(cropped_image, selected_label, is_queued, current_image_file.name,
+                         date_taken, guess_side(current_image_file.name))
         if "db_save_message" in st.session_state:
             kind, message = st.session_state.pop("db_save_message")
             getattr(st, kind)(message)
@@ -317,11 +391,13 @@ if uploaded_files:
         def go_previous():
             st.session_state.img_index = max(0, st.session_state.img_index - 1)
             st.session_state.crop_confirmed = False
+            st.session_state.pop("selected_label", None)
             compare(0)
 
         def go_next():
             st.session_state.img_index = min(total_images - 1, st.session_state.img_index + 1)
             st.session_state.crop_confirmed = False
+            st.session_state.pop("selected_label", None)
             compare(0)
 
         col1, col2 = st.columns([1, 1])
