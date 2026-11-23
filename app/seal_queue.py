@@ -26,6 +26,35 @@ def load_queue():
             continue
     return entries
 
+def queued_seal_numbers(known_seals):
+    """
+    Desc: Lists the new seals waiting in the training queue (seals the model doesn't know yet)
+    arguments: known_seals- seal numbers the model already knows, as strings
+    returns: queued seal numbers as strings, smallest first
+    """
+    numbers = {entry.get("seal_number", "") for entry in load_queue()}
+    return sorted((n for n in numbers if n.isdigit() and str(int(n)) not in known_seals), key=int)
+
+def queued_seal_images(seal_number):
+    """
+    Desc: Finds the queued pictures of one seal
+    arguments: seal_number- seal's subject number, as a string
+    returns: list of (image path, source filename), sorted by filename
+    """
+    queue_dir = QUEUE_DIR.resolve()
+    images = []
+    for entry in load_queue():
+        if entry.get("seal_number") != seal_number:
+            continue
+        try:
+            path = (QUEUE_DIR / entry.get("image_path", "")).resolve()
+            path.relative_to(queue_dir)  #Skip entries that point outside the queue folder
+        except (OSError, ValueError):
+            continue
+        if path.is_file():
+            images.append((path, entry.get("source_filename", "Unknown file")))
+    return sorted(images, key=lambda image: image[1])
+
 def save_entry(entry):
     """
     Desc: Writes one queue entry next to its image
